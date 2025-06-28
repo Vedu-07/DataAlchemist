@@ -3,12 +3,20 @@
 // Define a generic type for a row of data, where keys are string and values are any
 export type DataRow = { [key: string]: any };
 
+// Defines a suggested correction for an error
+export interface SuggestedCorrection {
+  column: string; // The column where the correction should apply
+  newValue: any;  // The suggested new value
+  reason?: string; // Optional: AI's reason for the suggestion
+}
+
 // Define the structure for an error flagged during validation
 export interface ValidationError {
-  row: number;         // The row index where the error occurred
+  row: number;         // The row index where the error occurred (0-indexed)
   column: string;      // The column name where the error occurred
   message: string;     // A descriptive message about the error
   severity?: 'warning' | 'error'; // Optional: severity level
+  suggestedCorrection?: SuggestedCorrection; // NEW: Optional AI-suggested correction
 }
 
 // Define the overall structure of parsed data, including errors
@@ -27,17 +35,17 @@ export interface ClientData extends DataRow {
   name?: string;
   email?: string;
   status?: string;
-  priorityLevel?: number; // Added based on sample data
-  requestedTaskIds?: string; // Comma-separated string
+  priorityLevel?: number;
+  requestedTaskIds?: string;
   groupTag?: string;
-  attributesJson?: string; // JSON string
+  attributesJson?: string;
 }
 
 export interface WorkerData extends DataRow {
   workerId?: string;
-  workerName?: string; // Changed from 'name'
-  skills?: string; // Comma-separated string
-  availableSlots?: string; // JSON array string
+  workerName?: string;
+  skills?: string;
+  availableSlots?: string;
   maxLoadPerPhase?: number;
   workerGroup?: string;
   qualificationLevel?: number;
@@ -46,11 +54,11 @@ export interface WorkerData extends DataRow {
 
 export interface TaskData extends DataRow {
   taskId?: string;
-  taskName?: string; // Changed from 'description'
+  taskName?: string;
   category?: string;
   duration?: number;
-  requiredSkills?: string; // Comma-separated string
-  preferredPhases?: string; // String like "1-3" or "[1,2]"
+  requiredSkills?: string;
+  preferredPhases?: string;
   maxConcurrent?: number;
 }
 
@@ -143,7 +151,7 @@ export interface GeminiRuleConversionResponse {
 }
 
 
-// --- New Types for Natural Language Data Modification (Milestone 3) ---
+// --- New Types for Natural Language Data Modification (Milestone 3 - Part 1) ---
 
 // Defines a single filter condition (e.g., "column 'status' equals 'active'")
 export interface DataFilter {
