@@ -1,15 +1,17 @@
+// src/app/page.tsx
 'use client';
 
 import React, { useState, useCallback } from 'react';
 import FileUpload from '@/components/FileUpload';
 import DataTable from '@/components/DataTable';
 import RuleConfigurator from '@/components/RuleConfigurator';
+import DataModifier from '@/components/DataModifier'; // Import the new DataModifier component
 import { ParsedData, FileCategory, DataRow } from '@/types';
-import { FiSun, FiMoon } from "react-icons/fi"; 
+import { FiSun, FiMoon } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import { useTheme } from 'next-themes';
-import { toast } from 'sonner'; 
+import { toast } from 'sonner';
 
 const HomePage: React.FC = () => {
   const [clientsData, setClientsData] = useState<ParsedData | null>(null);
@@ -40,6 +42,10 @@ const HomePage: React.FC = () => {
     toast.error(errorMessage);
   }, []);
 
+  /**
+   * Universal handler for updating data for a specific category.
+   * This is used by DataTable (for manual cell edits) and now by DataModifier (for NL edits).
+   */
   const handleDataUpdate = useCallback((category: FileCategory, updatedData: ParsedData) => {
     switch (category) {
       case 'clients':
@@ -59,7 +65,7 @@ const HomePage: React.FC = () => {
 
   const exportToCsv = (data: DataRow[], filename: string) => {
     if (!data || data.length === 0) {
-      toast.error(`No data to export for ${filename}.`); 
+      toast.error(`No data to export for ${filename}.`);
       return;
     }
 
@@ -77,9 +83,9 @@ const HomePage: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      toast.success(`Successfully exported ${filename}!`); 
+      toast.success(`Successfully exported ${filename}!`);
     } else {
-      toast.error(`Your browser does not support automatic CSV download.`); 
+      toast.error(`Your browser does not support automatic CSV download.`);
     }
   };
 
@@ -99,7 +105,7 @@ const HomePage: React.FC = () => {
     }
 
     if (exportedCount === 0) {
-      toast.warning("No data available to export. Please upload files first."); 
+      toast.warning("No data available to export. Please upload files first.");
     }
   }, [clientsData, workersData, tasksData]);
 
@@ -107,7 +113,7 @@ const HomePage: React.FC = () => {
     <div className="container mx-auto max-w-7xl px-4">
       <header className="text-center mb-12 relative">
         <h1 className="text-5xl font-extrabold text-foreground leading-tight">
-          Data Alchemist
+          🚀 Data Alchemist
         </h1>
         <p className="mt-4 text-xl text-muted-foreground">
           Forge Your Own AI Resource-Allocation Configurator
@@ -128,7 +134,7 @@ const HomePage: React.FC = () => {
         </div>
       </header>
 
-
+      {/* File Upload Section */}
       <section className="mb-12">
         <FileUpload
           onDataParsed={handleDataParsed}
@@ -136,10 +142,22 @@ const HomePage: React.FC = () => {
         />
       </section>
 
+      {/* Natural Language Data Modification Section - NEW */}
+      <section className="mb-12">
+        <DataModifier
+          clientsData={clientsData}
+          workersData={workersData}
+          tasksData={tasksData}
+          onDataUpdated={handleDataUpdate} // Pass the universal data update handler
+        />
+      </section>
+
+      {/* Rule Configuration Section */}
       <section className="mb-12">
         <RuleConfigurator />
       </section>
 
+      {/* Data Display Sections */}
       <section className="space-y-12">
         {clientsData && (
           <DataTable
@@ -164,11 +182,12 @@ const HomePage: React.FC = () => {
         )}
       </section>
 
+      {/* Export Button */}
       {(clientsData || workersData || tasksData) && (
         <div className="mt-12 text-center">
           <Button
             onClick={handleExportAllData}
-                        size="lg"
+            size="lg"
           >
             Export All Cleaned Data
           </Button>

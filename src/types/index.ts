@@ -1,3 +1,5 @@
+// src/types/index.ts
+
 // Define a generic type for a row of data, where keys are string and values are any
 export type DataRow = { [key: string]: any };
 
@@ -53,7 +55,7 @@ export interface TaskData extends DataRow {
 }
 
 
-// --- New Rule Definitions for Milestone 2 ---
+// --- Rule Definitions for Milestone 2 ---
 
 // Base interface for any rule
 export interface BaseRule {
@@ -101,7 +103,6 @@ export interface PatternMatchRule extends BaseRule {
   column: string; // Column to check the pattern against
   regex: string; // The regex pattern
   action: 'flag' | 'transform'; // What to do when pattern matches
-  // Add more action details later, e.g., transformation parameters
   actionDetails?: {
     transformTo?: string; // For 'transform' action
     message?: string; // For 'flag' action
@@ -115,7 +116,6 @@ export interface PrecedenceOverrideRule extends BaseRule {
 }
 
 // This rule type represents a rule proposed by AI from Natural Language input.
-// This is what Gemini will generate from a natural language prompt.
 export interface NaturalLanguageRule extends BaseRule {
   type: 'naturalLanguage'; // This type indicates it came from NL input
   originalPrompt: string; // The original natural language prompt
@@ -140,4 +140,41 @@ export interface GeminiRuleConversionResponse {
   suggestedRule: Exclude<Rule, NaturalLanguageRule> | null; // Gemini should return a concrete rule type
   confidence?: number;
   error?: string;
+}
+
+
+// --- New Types for Natural Language Data Modification (Milestone 3) ---
+
+// Defines a single filter condition (e.g., "column 'status' equals 'active'")
+export interface DataFilter {
+  column: string;
+  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with';
+  value: any;
+}
+
+// Defines a single modification action (e.g., "set column 'status' to 'inactive'")
+export interface DataModificationAction {
+  column: string;
+  newValue: any;
+  operation?: 'set' | 'increment' | 'decrement' | 'append' | 'prepend'; // 'set' is default if not specified
+}
+
+// Defines the structured instructions Gemini will return for data modification
+export interface DataModificationInstructions {
+  targetCategory: FileCategory; // The category of data to modify ('clients', 'workers', 'tasks')
+  filters: DataFilter[]; // Array of conditions to select rows for modification
+  actions: DataModificationAction[]; // Array of modifications to apply to selected rows
+  description: string; // A summary of the modification
+  confirmationRequired: boolean; // True if the AI thinks user confirmation is highly recommended
+}
+
+// Response structure from the /api/modify-data endpoint
+export interface GeminiDataModificationResponse {
+  success: boolean;
+  message: string;
+  modifiedData?: DataRow[]; // The updated data rows (only the rows that were actually changed)
+  fullUpdatedData?: ParsedData; // Or the full ParsedData object with updated data and new errors if any
+  instructions?: DataModificationInstructions; // The structured instructions from Gemini
+  error?: string;
+  rowCountAffected?: number;
 }

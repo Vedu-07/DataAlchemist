@@ -1,14 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-// No need to import Schema explicitly, it's inferred by the library's types
 import { Rule, GeminiRuleConversionResponse, NaturalLanguageRule } from '@/types'; // Import necessary types
 
-// POST handler for the API route
 export async function POST(request: Request) {
   try {
-    // Parse the request body to get the natural language prompt
     const { prompt } = await request.json();
 
-    // Basic validation for the prompt
     if (!prompt) {
       return new Response(JSON.stringify({ success: false, message: 'Prompt is required.' }), {
         status: 400,
@@ -16,9 +12,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Initialize the GoogleGenerativeAI client
-    // CRITICAL FIX: In the Canvas environment, leave apiKey as an empty string.
-    // The Canvas runtime will automatically provide the API key.
         const apiKey = process.env.NEXT_GEMINI_API_KEY;
 
         if (!apiKey) {
@@ -27,13 +20,9 @@ export async function POST(request: Request) {
 
         const genAI = new GoogleGenerativeAI(apiKey);
 
-    // Select the Gemini Pro model for text generation and structured output
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Using gemini-2.0-flash as instructed
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); 
 
-    // Define the JSON schema for the expected structured rule output.
-    // This guides Gemini to generate a rule object that matches our TypeScript interfaces.
-    // FIX: Removed `nullable: true` from properties as it's not directly supported by the SDK's Schema type definition here.
-    // Optionality is handled by not including a property in the generated JSON if not applicable.
+
     const ruleSchema = {
       type: "object",
       properties: {
@@ -43,7 +32,6 @@ export async function POST(request: Request) {
         },
         description: { type: "string" },
         isEnabled: { type: "boolean" },
-        // Properties specific to different rule types - removed `nullable: true`
         taskIds: { type: "array", items: { type: "string" } }, // For coRun
         groupType: { type: "string", enum: ["clientGroup", "workerGroup"] }, // For slotRestriction
         groupName: { type: "string" }, // For slotRestriction, loadLimit
@@ -71,8 +59,6 @@ export async function POST(request: Request) {
       required: ["type", "description", "isEnabled"] // Base properties always required
     };
 
-    // The prompt for Gemini to convert natural language to a structured rule.
-    // It's crucial to give Gemini clear instructions and context about the expected output format.
     const chatHistory = [
       {
         role: "user",
@@ -118,15 +104,13 @@ export async function POST(request: Request) {
       },
     ];
 
-    // Call Gemini with the prompt and the defined schema
     const result = await model.generateContent({
       contents: chatHistory,
       generationConfig: {
-        responseMimeType: "application/json", // Crucial for getting JSON output 
+        responseMimeType: "application/json", 
       },
     });
 
-    // Extract the text part which should be a JSON string
     const responseText = result.response.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!responseText) {
@@ -136,16 +120,13 @@ export async function POST(request: Request) {
       });
     }
 
-    // Parse the JSON string into an object
-    // Ensure the parsed object matches the expected rule types (excluding NaturalLanguageRule)
     const suggestedRule: Exclude<Rule, NaturalLanguageRule> = JSON.parse(responseText);
 
-    // Return the structured rule to the frontend
     const apiResponse: GeminiRuleConversionResponse = {
       success: true,
       message: 'Rule successfully generated from natural language.',
       suggestedRule: suggestedRule,
-      confidence: 1.0 // Placeholder for AI confidence, can be estimated or returned by model if supported
+      confidence: 1.0 
     };
 
     return new Response(JSON.stringify(apiResponse), {
