@@ -1,21 +1,22 @@
+// Define a generic type for a row of data, where keys are string and values are any
 export type DataRow = { [key: string]: any };
 
-
+// Define the structure for an error flagged during validation
 export interface ValidationError {
-  row: number;         
-  column: string;      
-  message: string;     
-  severity?: 'warning' | 'error'; 
+  row: number;         // The row index where the error occurred
+  column: string;      // The column name where the error occurred
+  message: string;     // A descriptive message about the error
+  severity?: 'warning' | 'error'; // Optional: severity level
 }
 
-
+// Define the overall structure of parsed data, including errors
 export interface ParsedData {
-  headers: string[];      
-  data: DataRow[];        
-  errors: ValidationError[]; 
+  headers: string[];      // Array of column headers
+  data: DataRow[];        // Array of data rows
+  errors: ValidationError[]; // Array of validation errors
 }
 
-
+// Define the type of file categories we expect
 export type FileCategory = 'clients' | 'workers' | 'tasks';
 
 // Specific interfaces for expected data structures (can be expanded later)
@@ -24,18 +25,119 @@ export interface ClientData extends DataRow {
   name?: string;
   email?: string;
   status?: string;
+  priorityLevel?: number; // Added based on sample data
+  requestedTaskIds?: string; // Comma-separated string
+  groupTag?: string;
+  attributesJson?: string; // JSON string
 }
 
 export interface WorkerData extends DataRow {
   workerId?: string;
-  name?: string;
-  skill?: string;
-  availability?: string;
+  workerName?: string; // Changed from 'name'
+  skills?: string; // Comma-separated string
+  availableSlots?: string; // JSON array string
+  maxLoadPerPhase?: number;
+  workerGroup?: string;
+  qualificationLevel?: number;
+  hourlyRate?: number;
 }
 
 export interface TaskData extends DataRow {
   taskId?: string;
-  description?: string;
-  status?: string;
-  priority?: string;
+  taskName?: string; // Changed from 'description'
+  category?: string;
+  duration?: number;
+  requiredSkills?: string; // Comma-separated string
+  preferredPhases?: string; // String like "1-3" or "[1,2]"
+  maxConcurrent?: number;
+}
+
+
+// --- New Rule Definitions for Milestone 2 ---
+
+// Base interface for any rule
+export interface BaseRule {
+  id: string; // Unique identifier for the rule
+  type: string; // Discriminator for rule type (e.g., 'coRun', 'slotRestriction', 'naturalLanguage')
+  description: string; // Human-readable description of the rule
+  isEnabled: boolean; // Whether the rule is active
+  source: 'manual' | 'ai' | 'naturalLanguage'; // How the rule was created
+}
+
+// 1. Co-run Rule: Tasks that must be executed together by the same worker
+export interface CoRunRule extends BaseRule {
+  type: 'coRun';
+  taskIds: string[]; // Array of TaskIDs that must co-run
+}
+
+// 2. Slot Restriction Rule: Constraints on client/worker groups regarding common slots
+export interface SlotRestrictionRule extends BaseRule {
+  type: 'slotRestriction';
+  groupType: 'clientGroup' | 'workerGroup'; // Type of group to apply to
+  groupName: string; // The specific group name
+  minCommonSlots: number; // Minimum number of common slots required
+  targetPhases?: number[]; // Optional: restrict to specific phases
+}
+
+// 3. Load Limit Rule: Maximum workload per phase for a selected worker group
+export interface LoadLimitRule extends BaseRule {
+  type: 'loadLimit';
+  workerGroup: string; // The worker group this limit applies to
+  maxLoad: number; // Maximum load allowed per phase
+  phase?: number; // Optional: specific phase, or applies to all phases if undefined
+}
+
+// 4. Phase Window Rule: Allowed phase lists or ranges for specific tasks
+export interface PhaseWindowRule extends BaseRule {
+  type: 'phaseWindow';
+  taskId: string; // The TaskID this rule applies to
+  allowedPhases: (number | string)[]; // Array of numbers or string ranges (e.g., [1, 2, "4-6"])
+}
+
+// 5. Pattern Match Rule: Apply a rule based on a regex pattern match (e.g., on task name)
+export interface PatternMatchRule extends BaseRule {
+  type: 'patternMatch';
+  entity: 'clients' | 'workers' | 'tasks'; // Entity to apply pattern to
+  column: string; // Column to check the pattern against
+  regex: string; // The regex pattern
+  action: 'flag' | 'transform'; // What to do when pattern matches
+  // Add more action details later, e.g., transformation parameters
+  actionDetails?: {
+    transformTo?: string; // For 'transform' action
+    message?: string; // For 'flag' action
+  }
+}
+
+// 6. Precedence Override Rule: Define explicit priority order for rules
+export interface PrecedenceOverrideRule extends BaseRule {
+  type: 'precedenceOverride';
+  ruleIds: string[]; // Ordered array of rule IDs
+}
+
+// This rule type represents a rule proposed by AI from Natural Language input.
+// This is what Gemini will generate from a natural language prompt.
+export interface NaturalLanguageRule extends BaseRule {
+  type: 'naturalLanguage'; // This type indicates it came from NL input
+  originalPrompt: string; // The original natural language prompt
+  suggestedStructuredRule: Exclude<Rule, NaturalLanguageRule> | null; // The structured rule Gemini interpreted, if any
+  aiConfidence?: number; // Optional: AI's confidence score (0-1)
+}
+
+// Union type for all possible rule types (excluding NaturalLanguageRule from itself)
+export type Rule =
+  | CoRunRule
+  | SlotRestrictionRule
+  | LoadLimitRule
+  | PhaseWindowRule
+  | PatternMatchRule
+  | PrecedenceOverrideRule
+  | NaturalLanguageRule;
+
+// Defines the payload expected from Gemini for natural language rule conversion
+export interface GeminiRuleConversionResponse {
+  success: boolean;
+  message: string;
+  suggestedRule: Exclude<Rule, NaturalLanguageRule> | null; // Gemini should return a concrete rule type
+  confidence?: number;
+  error?: string;
 }
