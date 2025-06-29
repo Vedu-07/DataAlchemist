@@ -1,10 +1,17 @@
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { DataRow, DataModificationInstructions, FileCategory, GeminiDataModificationResponse } from '@/types';
 import { validateData } from '@/lib/dataProcessor'; 
+
 export async function POST(request: Request) {
+  let prompt: string | undefined; // Allow undefined initially
+  let category: FileCategory | undefined; // Allow undefined initially
+  let currentData: DataRow[] | undefined; // Allow undefined initially
+
   try {
-    const { prompt, category, currentData }: { prompt: string; category: FileCategory; currentData: DataRow[] } = await request.json();
+    const requestBody: { prompt: string; category: FileCategory; currentData: DataRow[] } = await request.json();
+    prompt = requestBody.prompt;
+    category = requestBody.category; 
+    currentData = requestBody.currentData;
 
     if (!prompt || !category || !currentData) {
       return new Response(JSON.stringify({ success: false, message: 'Missing prompt, category, or currentData.' }), {
@@ -23,11 +30,13 @@ export async function POST(request: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); 
+    
+    // This schema is relevant for generating rules, not modifying data.
 
     const headers = currentData.length > 0 ? Object.keys(currentData[0]) : [];
     const columnInfo = headers.map(header => {
-      const sampleValues = currentData.map(row => row[header]).filter(val => val !== null && val !== undefined).slice(0, 5);
+      const sampleValues = currentData!.map(row => row[header]).filter(val => val !== null && val !== undefined).slice(0, 5); // Use ! for non-null assertion
       let type = 'string';
       if (sampleValues.every(val => typeof val === 'number')) type = 'number';
       else if (sampleValues.every(val => typeof val === 'boolean')) type = 'boolean';
@@ -177,8 +186,12 @@ export async function POST(request: Request) {
     try {
       instructions = JSON.parse(responseText);
       console.log('Gemini Generated Instructions:', JSON.stringify(instructions, null, 2));
-    } catch (err) {
-      throw new Error('Failed to parse JSON from AI response: ' + responseText); 
+    } catch (err: unknown) { 
+      let parseErrorMessage = 'Failed to parse JSON from AI response.';
+      if (err instanceof Error) {
+        parseErrorMessage += ` Error: ${err.message}`;
+      }
+      throw new Error(`${parseErrorMessage}. Raw response: ${responseText}`); 
     }
 
     if (!Array.isArray(instructions.filters)) {
@@ -201,7 +214,7 @@ export async function POST(request: Request) {
       throw new Error("Missing or invalid 'confirmationRequired'. Expected a boolean.");
     }
 
-    const updatedData: DataRow[] = JSON.parse(JSON.stringify(currentData));
+    const updatedData: DataRow[] = JSON.parse(JSON.stringify(currentData)); 
     let rowsAffected = 0;
 
     for (let i = 0; i < updatedData.length; i++) {
@@ -216,8 +229,8 @@ export async function POST(request: Request) {
           break;
         }
 
-        let filterValue: any = filter.value;
-        let compareColumnValue: any = columnValue;
+        let filterValue: unknown = filter.value; 
+        let compareColumnValue: unknown = columnValue; 
 
         if (typeof compareColumnValue === 'string' && typeof filterValue === 'number' && !isNaN(parseFloat(compareColumnValue))) {
           compareColumnValue = parseFloat(compareColumnValue);
@@ -232,20 +245,27 @@ export async function POST(request: Request) {
           filterValue = filterValue.toLowerCase() === 'true';
         }
 
-
         switch (filter.operator) {
           case 'eq':
-            if (typeof compareColumnValue === 'string' && typeof filterValue === 'string') {
-                if (compareColumnValue.toLowerCase() !== filterValue.toLowerCase()) matchesFilters = false;
+            if (typeof compareColumnValue === typeof filterValue) {
+                if (typeof compareColumnValue === 'string' && typeof filterValue === 'string') {
+                    if (compareColumnValue.toLowerCase() !== filterValue.toLowerCase()) matchesFilters = false;
+                } else {
+                    if (compareColumnValue !== filterValue) matchesFilters = false;
+                }
             } else {
-                if (compareColumnValue !== filterValue) matchesFilters = false;
+                matchesFilters = false; 
             }
             break;
           case 'neq':
-            if (typeof compareColumnValue === 'string' && typeof filterValue === 'string') {
-                if (compareColumnValue.toLowerCase() === filterValue.toLowerCase()) matchesFilters = false;
+            if (typeof compareColumnValue === typeof filterValue) {
+                if (typeof compareColumnValue === 'string' && typeof filterValue === 'string') {
+                    if (compareColumnValue.toLowerCase() === filterValue.toLowerCase()) matchesFilters = false;
+                } else {
+                    if (compareColumnValue === filterValue) matchesFilters = false;
+                }
             } else {
-                if (compareColumnValue === filterValue) matchesFilters = false;
+                matchesFilters = false; 
             }
             break;
           case 'gt':
@@ -286,8 +306,8 @@ export async function POST(request: Request) {
       if (matchesFilters) {
         let rowChanged = false;
         for (const action of instructions.actions) {
-          let originalValue = row[action.column];
-          let newValue = action.newValue;
+          const originalValue = row[action.column]; 
+          const newValue = action.newValue; 
 
           switch (action.operation || 'set') {
             case 'set':
@@ -363,13 +383,26 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) { 
+    let errorMessage = 'An unknown error occurred.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     console.error('API Error during data modification:', error);
     return new Response(JSON.stringify({
       success: false,
-      message: `Failed to modify data: ${error.message || 'An unknown error occurred.'}`,
-      error: error.message,
-    }), {
+      message: `Failed to modify data: ${errorMessage}`,
+      error: error instanceof Error ? error.message : String(error), 
+      fullUpdatedData: { headers: [], data: [], errors: [] },
+      instructions: { 
+        targetCategory: category || 'clients', 
+        filters: [], 
+        actions: [], 
+        description: 'Error during modification', 
+        confirmationRequired: false 
+      },
+      rowCountAffected: 0,
+    } as GeminiDataModificationResponse), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

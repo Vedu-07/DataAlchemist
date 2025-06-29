@@ -44,9 +44,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDataParsed, onFileTypeError }
       });
 
       event.target.value = '';
-    } catch (error: any) {
+    } catch (error: unknown) { 
       console.error('Error processing file:', error);
-      onFileTypeError(`Error processing file: ${error.message || 'An unknown error occurred.'}`);
+      let errorMessage = 'An unknown error occurred.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      onFileTypeError(`Error processing file: ${errorMessage}`);
       event.target.value = '';
       setSelectedFileNames(prev => ({ ...prev, [category]: undefined }));
     } finally {

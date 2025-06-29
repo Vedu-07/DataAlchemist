@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import {  ParsedData, FileCategory, GeminiDataModificationResponse, DataFilter, DataModificationAction } from '@/types';
+import { ParsedData, FileCategory, GeminiDataModificationResponse, DataFilter, DataModificationAction, DataModificationInstructions } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,8 +22,7 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
   const [selectedCategory, setSelectedCategory] = useState<FileCategory | ''>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [confirmationNeeded, setConfirmationNeeded] = useState<boolean>(false);
-  const [proposedInstructions, setProposedInstructions] = useState<any>(null); 
-
+  const [proposedInstructions, setProposedInstructions] = useState<DataModificationInstructions | null>(null); 
 
   const handleModifyData = useCallback(async (confirm: boolean = false) => {
     if (!prompt.trim()) {
@@ -88,9 +87,13 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
       } else {
         toast.error(`Data modification failed: ${result.message || 'An unknown error occurred.'}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error calling modify-data API:', error);
-      toast.error(`An unexpected error occurred during modification: ${error.message || 'Please try again.'}`);
+      let errorMessage = 'Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      toast.error(`An unexpected error occurred during modification: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +108,6 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
     setProposedInstructions(null);
     toast.info("Data modification cancelled.");
   }, []);
-
 
   return (
     <Card className="mt-8 p-6 md:p-8">
@@ -148,7 +150,7 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
           ) : (
             <FiCpu className="mr-2 h-4 w-4" />
           )}
-          Analyze & Propose Changes
+          Analyze &amp; Propose Changes
         </Button>
 
         {confirmationNeeded && proposedInstructions && (
@@ -163,13 +165,13 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
             <p className="text-sm font-medium mb-1">Filters ({proposedInstructions.filters.length}):</p>
             <ul className="list-disc list-inside text-xs ml-4">
               {proposedInstructions.filters.map((f: DataFilter, idx: number) => (
-                <li key={idx}>Column '{f.column}' {f.operator} '{String(f.value)}'</li>
+                <li key={idx}>Column &apos;{f.column}&apos; {f.operator} &apos;{String(f.value)}&apos;</li>
               ))}
             </ul>
             <p className="text-sm font-medium mt-3 mb-1">Actions ({proposedInstructions.actions.length}):</p>
             <ul className="list-disc list-inside text-xs ml-4">
               {proposedInstructions.actions.map((a: DataModificationAction, idx: number) => (
-                <li key={idx}>Set column '{a.column}' to '{String(a.newValue)}' (Operation: {a.operation || 'set'})</li>
+                <li key={idx}>Set column &apos;{a.column}&apos; to &apos;{String(a.newValue)}&apos; (Operation: {a.operation || 'set'})</li>
               ))}
             </ul>
             <div className="flex justify-end space-x-4 mt-4">
@@ -177,7 +179,7 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
                 Cancel
               </Button>
               <Button className='cursor-pointer' onClick={handleConfirmModification} disabled={isLoading}>
-                <FiCheckCircle className="mr-2 h-4 w-4" /> Confirm & Apply Changes
+                <FiCheckCircle className="mr-2 h-4 w-4" /> Confirm &amp; Apply Changes
               </Button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { DataRow, ParsedData, ValidationError, FileCategory } from '../types';
+import { DataRow, ParsedData, FileCategory, ValidationError, TaskData } from '@/types';
 
 
 const toCamelCase = (str: string): string => {
@@ -44,7 +44,7 @@ export const parseFile = async (file: File): Promise<ParsedData> => {
         const worksheet = workbook.Sheets[sheetName];
 
         
-        const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+        const jsonData: unknown[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true }); 
 
         if (jsonData.length === 0) {
           resolve({ headers: [], data: [], errors: [{ row: 0, column: 'File', message: 'The uploaded file is empty.', severity: 'warning' }] });
@@ -57,13 +57,24 @@ export const parseFile = async (file: File): Promise<ParsedData> => {
         const headers: string[] = rawHeaders.map(header => toCamelCase(header));
 
 
-        const rows: any[][] = jsonData.slice(1);
+        const rows: unknown[][] = jsonData.slice(1); 
 
-        const parsedRows: DataRow[] = rows.map((rowArr, rowIndex) => {
+        const parsedRows: DataRow[] = rows.map((rowArr) => {
           const rowObject: DataRow = {};
           headers.forEach((cleanedHeader, colIndex) => {
-  
-            rowObject[cleanedHeader] = rowArr[colIndex];
+ 
+            // Ensure values are of types allowed by DataRow
+            const value = rowArr[colIndex];
+            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined) {
+                rowObject[cleanedHeader] = value;
+            } else if (Array.isArray(value)) {
+                rowObject[cleanedHeader] = value.map(item => 
+                    (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean' || item === null || item === undefined) 
+                        ? item : String(item)
+                );
+            } else {
+                rowObject[cleanedHeader] = String(value); // Convert other unexpected types to string
+            }
           });
           return rowObject;
         });
@@ -71,9 +82,13 @@ export const parseFile = async (file: File): Promise<ParsedData> => {
 
         resolve({ headers, data: parsedRows, errors: [] });
 
-      } catch (error: any) {
+      } catch (error: unknown) { 
         console.error("Error parsing file:", error);
-        reject(new Error(`Failed to parse file: ${error.message}`));
+        let errorMessage = 'An unknown error occurred.';
+        if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+        reject(new Error(`Failed to parse file: ${errorMessage}`));
       }
     };
 
@@ -96,7 +111,7 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
   }
 
 
-  const isEmpty = (value: any): boolean => {
+  const isEmpty = (value: unknown): boolean => { 
     return value === null || value === undefined || String(value).trim() === '';
   };
 
@@ -109,7 +124,7 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
   };
   const idColumn = idColumnMap[category];
 
-  data.forEach((row, rowIndex) => {
+  data.forEach((row, rowIndex) => { 
     Object.keys(row).forEach(key => {
       if (isEmpty(row[key])) {
         errors.push({
@@ -121,7 +136,7 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
       }
     });
 
-    if (idColumn && row[idColumn]) {
+    if (idColumn && row[idColumn] !== undefined && row[idColumn] !== null) {
       const idValue = String(row[idColumn]).trim();
       if (idValue && encounteredIds.has(idValue)) {
         errors.push({
@@ -151,7 +166,8 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
 
         if (row.email && !isEmpty(row.email)) {
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(String(row.email).trim())) {
+          // Ensure row.email is a string before testing regex
+          if (typeof row.email === 'string' && !emailRegex.test(row.email.trim())) {
             errors.push({
               row: rowIndex + 1,
               column: 'email',
@@ -187,19 +203,19 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
             severity: 'error'
           });
         }
-        const workerSkills = String(row.skills || '').trim(); 
-
+        // Worker skills can be string or array of strings, handled in parseFile
+        const workerSkills = row.skills; 
 
         if (isEmpty(workerSkills)) {
           errors.push({
             row: rowIndex + 1,
             column: 'skills', 
-            message: "'skills' should be a non-empty string.",
+            message: "'skills' should be a non-empty value.", // Adjusted message
             severity: 'warning'
           });
         }
 
-        if (row.hourlyRate !== undefined && !isEmpty(row.hourlyRate)) {
+        if (row.hourlyRate !== undefined && row.hourlyRate !== null && !isEmpty(row.hourlyRate)) {
             const rate = Number(row.hourlyRate);
             if (isNaN(rate) || rate <= 0) {
                 errors.push({
@@ -215,8 +231,10 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
 
     case 'tasks':
       data.forEach((row, rowIndex) => {
-   
-        if (isEmpty(row.taskId)) {
+       // Cast to TaskData to access specific properties directly with correct types
+        const taskRow = row as TaskData;
+    
+        if (isEmpty(taskRow.taskId)) { // Use taskRow
           errors.push({
             row: rowIndex + 1,
             column: 'taskId',
@@ -226,35 +244,49 @@ export const validateData = (data: DataRow[], category: FileCategory): Validatio
         }
         
         const validPriorities = ['high', 'medium', 'low', 'urgent'];
-        if (row.priority && !isEmpty(row.priority)) {
-          const lowerCasePriority = String(row.priority).toLowerCase();
+        if (taskRow.priority && !isEmpty(taskRow.priority)) { // Use taskRow
+          const lowerCasePriority = String(taskRow.priority).toLowerCase(); // Use taskRow
           if (!validPriorities.includes(lowerCasePriority)) {
             errors.push({
               row: rowIndex + 1,
               column: 'priority',
-              message: `'${row.priority}' is not a valid priority. Expected: ${validPriorities.join(', ')} (case-insensitive).`,
+              message: `'${taskRow.priority}' is not a valid priority. Expected: ${validPriorities.join(', ')} (case-insensitive).`, // Use taskRow
               severity: 'warning'
             });
           }
         }
         
-        if (row.dueDate && !isEmpty(row.dueDate)) {
-            try {
-                const date = new Date(row.dueDate);
-                if (isNaN(date.getTime())) { 
+        // Validate dueDate, ensuring it's a string or number before creating a Date object
+        if (taskRow.dueDate !== undefined && taskRow.dueDate !== null && !isEmpty(taskRow.dueDate)) {
+            if (typeof taskRow.dueDate === 'string' || typeof taskRow.dueDate === 'number') {
+                try {
+                    const date = new Date(taskRow.dueDate);
+                    if (isNaN(date.getTime())) { 
+                        errors.push({
+                            row: rowIndex + 1,
+                            column: 'dueDate',
+                            message: `'${taskRow.dueDate}' is not a valid date format.`,
+                            severity: 'warning'
+                        });
+                    }
+                } catch (error: unknown) { 
+                    let errorMessage = 'An unknown error occurred during date parsing.';
+                    if (error instanceof Error) {
+                        errorMessage = error.message;
+                    }
                     errors.push({
                         row: rowIndex + 1,
                         column: 'dueDate',
-                        message: `'${row.dueDate}' is not a valid date format.`,
+                        message: `'${taskRow.dueDate}' is not a valid date format. Error: ${errorMessage}`,
                         severity: 'warning'
                     });
                 }
-            } catch (e) {
+            } else {
                 errors.push({
                     row: rowIndex + 1,
                     column: 'dueDate',
-                    message: `'${row.dueDate}' is not a valid date format.`,
-                    severity: 'warning'
+                    message: `Due Date must be a string or number (timestamp) for task '${taskRow.taskId}' at row ${rowIndex + 1}.`,
+                    severity: 'error'
                 });
             }
         }

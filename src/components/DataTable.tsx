@@ -73,7 +73,7 @@ const DataTable: React.FC<DataTableProps> = ({ category, parsedData, onDataUpdat
             <ul className="list-disc list-inside text-sm max-h-40 overflow-y-auto">
               {currentErrors.map((error, index) => (
                 <li key={index}>
-                  Row {error.row}, Column '{error.column}': {error.message}
+                  Row {error.row}, Column &apos;{error.column}&apos;: {error.message}
                   {error.severity === 'error' && <span className="text-destructive-foreground/80 ml-2">(Critical)</span>}
                   {error.severity === 'warning' && <span className="text-orange-400 ml-2">(Warning)</span>} {/* Custom for warning, can define in globals.css */}
                 </li>

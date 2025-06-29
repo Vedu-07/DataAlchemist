@@ -1,11 +1,10 @@
-
-// Define a generic type for a row of data, where keys are string and values are any
-export type DataRow = { [key: string]: any };
+// Define a generic type for a row of data, where keys are string and values are common primitives
+export type DataRow = { [key: string]: string | number | boolean | null | undefined | (string | number | boolean | null | undefined)[] };
 
 // Defines a suggested correction for an error/anomaly
 export interface SuggestedCorrection {
   column: string; // The column where the correction should apply
-  newValue: any;  // The suggested new value
+  newValue: string | number | boolean | null | undefined; // The suggested new value (more specific type)
   reason?: string; // Optional: AI's reason for the suggestion
 }
 
@@ -46,7 +45,7 @@ export interface ClientData extends DataRow {
 export interface WorkerData extends DataRow {
   workerId?: string;
   workerName?: string;
-  skills?: string;
+  skills?: string | string[]; // Can be string or array of strings
   availableSlots?: string;
   maxLoadPerPhase?: number;
   workerGroup?: string;
@@ -59,9 +58,11 @@ export interface TaskData extends DataRow {
   taskName?: string;
   category?: string;
   duration?: number;
-  requiredSkills?: string;
+  requiredSkills?: string | string[]; // Can be string or array of strings
   preferredPhases?: string;
   maxConcurrent?: number;
+  dependencies?: string | string[]; // Can be string or array of strings
+  dueDate?: string | number; // Added dueDate here
 }
 
 
@@ -159,13 +160,13 @@ export interface GeminiRuleConversionResponse {
 export interface DataFilter {
   column: string;
   operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'contains' | 'not_contains' | 'starts_with' | 'ends_with';
-  value: any;
+  value: string | number | boolean | null | undefined; // More specific type
 }
 
 // Defines a single modification action (e.g., "set column 'status' to 'inactive'")
 export interface DataModificationAction {
   column: string;
-  newValue: any;
+  newValue: string | number | boolean | null | undefined; // More specific type
   operation?: 'set' | 'increment' | 'decrement' | 'append' | 'prepend'; // 'set' is default if not specified
 }
 

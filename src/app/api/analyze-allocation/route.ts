@@ -10,13 +10,12 @@ import {
   PatternMatchRule,
   PrecedenceOverrideRule,
   NaturalLanguageRule,
-} from '@/types';
+} from '@/types'; 
 
 export async function POST(request: Request) {
   try {
     const { clientsData, workersData, tasksData, rules }: { clientsData: DataRow[]; workersData: DataRow[]; tasksData: DataRow[]; rules: Rule[]; } = await request.json();
 
-    // Basic validation for input data
     if (!clientsData || !workersData || !tasksData) {
       return new Response(JSON.stringify({ success: false, message: 'Missing client, worker, or task data for analysis.' }), {
         status: 400,
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.NEXT_GEMINI_API_KEY;
 
     if (!apiKey) {
-        throw new Error("Missing NEXT_GEMINI_API_KEY environment variable");
+      throw new Error("Missing NEXT_GEMINI_API_KEY environment variable");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -54,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     const detailedRulesForPrompt = orderedRules.map(rule => {
-      let ruleDetails = `  - ID: ${rule.id}, Type: ${rule.type}, Description: "${rule.description}"`;
+      let ruleDetails = `  - ID: ${rule.id}, Type: ${rule.type}, Description: "${rule.description}"`;
       switch (rule.type) {
         case 'coRun':
           const coRunRule = rule as CoRunRule;
@@ -102,8 +101,6 @@ export async function POST(request: Request) {
       ? `\n**Active Business Rules (Applied in Order):**\n${detailedRulesForPrompt}\n`
       : "No specific business rules defined by the user.";
 
-
-
     const clientsSample = clientsData.slice(0, Math.min(clientsData.length, 20));
     const workersSample = workersData.slice(0, Math.min(workersData.length, 20));
     const tasksSample = tasksData.slice(0, Math.min(tasksData.length, 20));
@@ -114,7 +111,7 @@ export async function POST(request: Request) {
       ${tasksSample.length > 0 ? `### Tasks Data Sample (first ${tasksSample.length} rows):\n${JSON.stringify(tasksSample, null, 2)}\n` : ''}
     `;
 
-    const responseSchema = {
+    const responseSchemaDefinition = { 
       type: "object",
       properties: {
         overallStatus: {
@@ -132,7 +129,7 @@ export async function POST(request: Request) {
               details: { type: "string", description: "More specific details if available." },
               relatedIds: { type: "array", items: { type: "string" }, description: "IDs of related entities." }
             },
-            required: ["type", "message"] // Explicitly mark message as required for AI
+            required: ["type", "message"] 
           },
           default: []
         },
@@ -155,7 +152,7 @@ export async function POST(request: Request) {
               message: { type: "string", description: "Plain-language recommendation. This field is REQUIRED and must be descriptive." },
               type: { type: "string", enum: ["adjust_data", "adjust_rules", "strategic_action", "re_evaluate_priorities"], description: "Type of recommendation." }
             },
-            required: ["message", "type"] // Explicitly mark message as required for AI
+            required: ["message", "type"] 
           },
           default: []
         },
@@ -216,7 +213,8 @@ export async function POST(request: Request) {
 
             ${rulesForPrompt} <!-- Rules are injected here -->
 
-            Your output MUST be a JSON object adhering strictly to the provided JSON schema.
+            Your output MUST be a JSON object adhering strictly to the following JSON schema.
+            ${JSON.stringify(responseSchemaDefinition, null, 2)}
             Ensure all array properties are present, even if empty.
             Each object within 'bottlenecks' and 'recommendations' arrays MUST contain both 'type' and a non-empty 'message' property.
             `},
@@ -246,10 +244,14 @@ export async function POST(request: Request) {
 
       console.log('Gemini AI Allocation Analysis Response:', JSON.stringify(aiResponse, null, 2));
 
-    } catch (err: any) {
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to parse JSON from AI allocation analysis response.';
+      if (err instanceof Error) {
+        errorMessage += ` Error: ${err.message}`;
+      }
       console.error("JSON parse error from AI for allocation analysis:", err);
       console.error("Raw AI response leading to parse error:", responseText);
-      throw new Error('Failed to parse JSON from AI allocation analysis response: ' + responseText);
+      throw new Error(`${errorMessage}. Raw response: ${responseText}`);
     }
 
     const apiResponse: AllocationAnalysisResponse = {
@@ -267,18 +269,22 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    let errorMessage = 'An unknown error occurred during AI allocation analysis.';
+    if (error instanceof Error) {
+      errorMessage = `Failed AI allocation analysis: ${error.message}`;
+    }
     console.error('API Error during AI allocation analysis:', error);
     return new Response(JSON.stringify({
       success: false,
-      message: `Failed AI allocation analysis: ${error.message || 'An unknown error occurred.'}`,
-      error: error.message,
+      message: errorMessage,
+      error: error instanceof Error ? error.message : String(error),
       overallStatus: 'unknown',
       bottlenecks: [],
       predictedRuleViolations: [],
       predictedUnassignedTasksCount: 0,
       recommendations: [],
-    }), {
+    } as AllocationAnalysisResponse), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

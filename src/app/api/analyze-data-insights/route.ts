@@ -1,6 +1,5 @@
-
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { DataRow, FileCategory, ValidationError, AIInsightResponse, AIValidationIssue, SuggestedCorrection } from '@/types';
+import { DataRow, FileCategory, ValidationError, AIInsightResponse } from '@/types';
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +15,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.NEXT_GEMINI_API_KEY;
 
     if (!apiKey) {
-        throw new Error("Missing NEXT_GEMINI_API_KEY environment variable");
+      throw new Error("Missing NEXT_GEMINI_API_KEY environment variable");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -29,7 +28,7 @@ export async function POST(request: Request) {
       ? `\n\nExisting validation errors already identified by static rules (consider these, and suggest corrections where possible):\n${JSON.stringify(existingErrors, null, 2)}`
       : '\n\nThere are no existing static validation errors for the AI to directly address, but still look for anomalies.';
 
-    const responseSchema = {
+    const responseSchemaDefinition = {
       type: "object",
       properties: {
         aiIdentifiedIssues: {
@@ -82,7 +81,7 @@ export async function POST(request: Request) {
             2.  **Suggest Corrections for Errors/Anomalies:** For any issue you identify (or for existing static errors), if you can infer a logical fix, provide a "suggestedCorrection" with a "newValue" and a brief "reason". Ensure "suggestedCorrection.column" matches the "column" of the issue.
             3.  **Generate User-Friendly Messages:** Provide clear, non-technical "message" for each issue, explaining *why* it's an issue and *what* it implies.
             4.  **Provide High-Level Summary Insights:** Offer a few concise bullet points ("summaryInsights") about overall data quality, common issues, or interesting patterns.
-            5.  **Output JSON:** Your response MUST strictly adhere to the provided JSON schema. Ensure "aiIdentifiedIssues" and "summaryInsights" are always arrays, even if empty.
+            5.  **Output JSON:** Your response MUST strictly adhere to the following JSON schema. Ensure "aiIdentifiedIssues" and "summaryInsights" are always arrays, even if empty.
 
             Current Data Category: '${category}'
 
@@ -90,6 +89,9 @@ export async function POST(request: Request) {
             ${dataSampleForPrompt}
 
             ${existingErrorsForPrompt}
+
+            JSON Schema for response:
+            ${JSON.stringify(responseSchemaDefinition, null, 2)}
 
             Focus on providing actionable insights and easy fixes for a non-technical user.
             `},
@@ -118,9 +120,14 @@ export async function POST(request: Request) {
 
       console.log('Gemini AI Data Insights Response:', JSON.stringify(aiResponse, null, 2));
 
-    } catch (err: any) {
+    } catch (err: unknown) { 
+      let errorMessage = 'Failed to parse JSON from AI for insights.';
+      if (err instanceof Error) {
+        errorMessage += ` Error: ${err.message}`;
+      }
       console.error("JSON parse error from AI for insights:", err);
-      throw new Error('Failed to parse JSON from AI insights response: ' + responseText);
+      console.error("Raw AI response leading to parse error:", responseText);
+      throw new Error(`${errorMessage}. Raw response: ${responseText}`);
     }
 
     const apiResponse: AIInsightResponse = {
@@ -135,15 +142,20 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) { 
+    let errorMessage = 'An unknown error occurred during AI data insights.';
+    if (error instanceof Error) {
+      errorMessage = `Failed AI insights: ${error.message}`;
+    }
     console.error('API Error during AI data insights:', error);
     return new Response(JSON.stringify({
       success: false,
-      message: `Failed AI insights: ${error.message || 'An unknown error occurred.'}`,
-      error: error.message,
+      message: errorMessage,
+      error: error instanceof Error ? error.message : String(error),
       aiIdentifiedIssues: [],
       summaryInsights: [],
-    }), {
+      aiMessage: 'An error occurred during AI data analysis.' 
+    } as AIInsightResponse), { 
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

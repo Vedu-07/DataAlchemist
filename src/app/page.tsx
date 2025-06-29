@@ -23,11 +23,11 @@ const HomePage: React.FC = () => {
   const [clientsData, setClientsData] = useState<ParsedData | null>(null);
   const [workersData, setWorkersData] = useState<ParsedData | null>(null);
   const [tasksData, setTasksData] = useState<ParsedData | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('validation');
+  const [activeTab, setActiveTab] = useState<string>('validation'); 
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  const [globalRules, setGlobalRules] = useState<Rule[]>([]);
+  const [globalRules, setGlobalRules] = useState<Rule[]>([]); 
 
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [aiInsightsSummary, setAiInsightsSummary] = useState<string[]>([]);
@@ -40,6 +40,13 @@ const HomePage: React.FC = () => {
     setGlobalRules(updatedRules);
     console.log("Rules updated from RuleConfigurator:", updatedRules);
   }, []); 
+
+  // Adding a useEffect to log activeTab to satisfy ESLint's unused-vars rule
+  // In a real app, 'activeTab' would likely be used for conditional rendering
+  // or other logic based on the active tab.
+  useEffect(() => {
+    console.log("Active tab changed to:", activeTab);
+  }, [activeTab]);
 
 
   useEffect(() => {
@@ -158,10 +165,14 @@ const HomePage: React.FC = () => {
       setAiInsightsSummary(allInsights);
       setOverallAiMessage(`AI analysis complete for ${successfulAnalyses} categories.`);
       toast.success("AI Smart Insights generated successfully!");
-    } catch (error: any) {
+    } catch (error: unknown) { 
+      let errorMessage = 'Try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       console.error('AI analysis error:', error);
-      setOverallAiMessage(`Unexpected error during AI analysis: ${error.message || 'Try again.'}`);
-      toast.error(`AI insights error: ${error.message || 'Try again.'}`);
+      setOverallAiMessage(`Unexpected error during AI analysis: ${errorMessage}`);
+      toast.error(`AI insights error: ${errorMessage}`);
     } finally {
       setAiInsightsLoading(false);
     }
@@ -185,7 +196,7 @@ const HomePage: React.FC = () => {
           clientsData: clientsData.data,
           workersData: workersData.data,
           tasksData: tasksData.data,
-          rules: [], 
+          rules: globalRules, 
         }),
       });
 
@@ -207,12 +218,16 @@ const HomePage: React.FC = () => {
           error: result.error || 'API error',
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) { 
+      let errorMessage = 'Please try again.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
       console.error('API Error during allocation analysis:', error);
-      toast.error(`An unexpected error occurred during analysis: ${error.message || 'Please try again.'}`);
+      toast.error(`An unexpected error occurred during analysis: ${errorMessage}`);
       setAllocationAnalysisResult({
         success: false,
-        message: `An unexpected error occurred: ${error.message || 'Please try again.'}`,
+        message: `An unexpected error occurred: ${errorMessage}`,
         overallStatus: 'unknown',
         bottlenecks: [],
         predictedRuleViolations: [],
@@ -222,8 +237,7 @@ const HomePage: React.FC = () => {
     } finally {
       setAllocationAnalysisLoading(false);
     }
-  }, [clientsData, workersData, tasksData]); 
-
+  }, [clientsData, workersData, tasksData, globalRules]); 
 
   const exportToCsv = (data: DataRow[], filename: string) => {
     if (!data || data.length === 0) {

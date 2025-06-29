@@ -12,18 +12,15 @@ export async function POST(request: Request) {
       });
     }
 
-        const apiKey = process.env.NEXT_GEMINI_API_KEY;
+    const apiKey = process.env.NEXT_GEMINI_API_KEY;
 
-        if (!apiKey) {
-        throw new Error("Missing NEXT_GEMINI_API_KEY environment variable");
-        }
+    if (!apiKey) {
+      throw new Error("Missing NEXT_GEMINI_API_KEY environment variable");
+    }
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); 
-
-
-    const ruleSchema = {
+    const ruleSchemaDefinition = {
       type: "object",
       properties: {
         type: {
@@ -32,31 +29,31 @@ export async function POST(request: Request) {
         },
         description: { type: "string" },
         isEnabled: { type: "boolean" },
-        taskIds: { type: "array", items: { type: "string" } }, // For coRun
-        groupType: { type: "string", enum: ["clientGroup", "workerGroup"] }, // For slotRestriction
-        groupName: { type: "string" }, // For slotRestriction, loadLimit
-        minCommonSlots: { type: "number" }, // For slotRestriction
-        maxLoad: { type: "number" }, // For loadLimit
-        phase: { type: "number" }, // For loadLimit
-        taskId: { type: "string" }, // For phaseWindow
+        taskIds: { type: "array", items: { type: "string" } }, 
+        groupType: { type: "string", enum: ["clientGroup", "workerGroup"] }, 
+        groupName: { type: "string" },
+        minCommonSlots: { type: "number" }, 
+        maxLoad: { type: "number" },
+        phase: { type: "number" }, 
+        taskId: { type: "string" }, 
         allowedPhases: {
           type: "array",
-          items: { type: ["number", "string"] }, // Can be numbers or string ranges like "4-6"
-        }, // For phaseWindow
-        entity: { type: "string", enum: ["clients", "workers", "tasks"] }, // For patternMatch
-        column: { type: "string" }, // For patternMatch
-        regex: { type: "string" }, // For patternMatch
-        action: { type: "string", enum: ["flag", "transform"] }, // For patternMatch
+          items: { type: ["number", "string"] },
+        }, 
+        entity: { type: "string", enum: ["clients", "workers", "tasks"] }, 
+        column: { type: "string" },
+        regex: { type: "string" }, 
+        action: { type: "string", enum: ["flag", "transform"] }, 
         actionDetails: {
           type: "object",
           properties: {
             transformTo: { type: "string" },
             message: { type: "string" }
           },
-        }, // For patternMatch
-        ruleIds: { type: "array", items: { type: "string" } } // For precedenceOverride
+        }, 
+        ruleIds: { type: "array", items: { type: "string" } } 
       },
-      required: ["type", "description", "isEnabled"] // Base properties always required
+      required: ["type", "description", "isEnabled"] 
     };
 
     const chatHistory = [
@@ -66,7 +63,7 @@ export async function POST(request: Request) {
           { text: `
             You are an expert in converting natural language business rules into a strict JSON format based on predefined types.
             The available rule types are: 'coRun', 'slotRestriction', 'loadLimit', 'phaseWindow', 'patternMatch', 'precedenceOverride'.
-            Your output MUST be a JSON object adhering to the provided JSON schema.
+            Your output MUST be a JSON object adhering to the following JSON schema.
             If a property is not applicable for a specific rule type, omit it. DO NOT include properties that are not applicable to the rule.
             Ensure 'isEnabled' is always true by default, and 'description' accurately summarizes the rule.
             
@@ -99,6 +96,9 @@ export async function POST(request: Request) {
 
             Now, convert the following natural language request into a structured JSON rule:
             "${prompt}"
+
+            JSON Schema for response:
+            ${JSON.stringify(ruleSchemaDefinition, null, 2)}
           `}
         ],
       },
@@ -134,9 +134,13 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) { 
+    let errorMessage = 'An unknown error occurred.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
     console.error('API Error generating rule:', error);
-    return new Response(JSON.stringify({ success: false, message: `Failed to generate rule: ${error.message || 'An unknown error occurred.'}` }), {
+    return new Response(JSON.stringify({ success: false, message: `Failed to generate rule: ${errorMessage}` }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
