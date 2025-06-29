@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, SetStateAction, Dispatch } from "react";
+import React, { useState, useCallback, useMemo,useEffect } from "react";
 import {
   Rule,
   NaturalLanguageRule,
@@ -29,8 +29,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -64,6 +64,10 @@ import {
 } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 
+interface RuleConfiguratorProps {
+  onRulesUpdate: (rules: Rule[]) => void;
+}
+
 const generateUniqueId = (): string => {
   return Math.random().toString(36).substring(2, 9);
 };
@@ -77,21 +81,53 @@ const getInitialNewRule = (): Omit<
   isEnabled: true,
 });
 
-const RuleConfigurator: React.FC = () => {
-  const [rules, setRules] = useState<Rule[]>([]);
+const LOCAL_STORAGE_KEY = 'resourceAllocationRules';
+
+const RuleConfigurator: React.FC<RuleConfiguratorProps> = ({ onRulesUpdate }) => {
+
+  const [rules, setRules] = useState<Rule[]>(() => {
+    if (typeof window !== 'undefined') {
+      const storedRules = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedRules) {
+        try {
+          return JSON.parse(storedRules) as Rule[];
+        } catch (e) {
+          console.error("Failed to parse stored rules from localStorage", e);
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+        }
+      }
+    }
+    return [];
+  });
+
   const [nlPrompt, setNlPrompt] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
-  const [editingRule, setEditingRule] = useState<Rule | null>(null); // Rule currently being edited
-  const [formRule, setFormRule] = useState<any>(getInitialNewRule()); // Rule data in the form
+  const [editingRule, setEditingRule] = useState<Rule | null>(null);
+  const [formRule, setFormRule] = useState<any>(getInitialNewRule());
 
   const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(rules));
+      if (rules.length === 0 && localStorage.getItem(LOCAL_STORAGE_KEY)) {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
+    }
+    onRulesUpdate(rules);
+  }, [rules, onRulesUpdate]);
+
+  // --- FIX APPLIED HERE: Added type predicate to exclude PrecedenceOverrideRule ---
   const visibleRules = useMemo(
-    () => rules.filter((rule) => rule.type !== "precedenceOverride"),
+    () => rules.filter(
+      (rule): rule is Exclude<Rule, PrecedenceOverrideRule> => // <--- This is the key change
+        rule.type !== "precedenceOverride"
+    ),
     [rules]
   );
+
   const currentPrecedenceRule = useMemo(
     () =>
       rules.find((rule) => rule.type === "precedenceOverride") as
@@ -253,32 +289,67 @@ const RuleConfigurator: React.FC = () => {
     toast.info("Rule removed.");
   }, []);
 
-  const onDragEnd = useCallback(
-    (result: DropResult) => {
-      if (!result.destination) {
-        return; // Dropped outside a droppable area
+const onDragEnd = useCallback(
+  (result: DropResult) => {
+    if (!result.destination) {
+      return; 
+    }
+
+    const rulesCopy = Array.from(rules);
+
+    const reorderableRules = rulesCopy.filter(
+      (rule): rule is Exclude<Rule, PrecedenceOverrideRule> => 
+        rule.type !== "precedenceOverride"
+    );
+
+    const [movedRule] = reorderableRules.splice(result.source.index, 1);
+    reorderableRules.splice(result.destination.index, 0, movedRule);
+
+    let updatedRules: Rule[] = []; 
+
+    updatedRules.push(...reorderableRules);
+
+    const newPrecedenceRule: PrecedenceOverrideRule = {
+      id: currentPrecedenceRule?.id || generateUniqueId(),
+      type: "precedenceOverride",
+      description:
+        "Defines the custom execution order of rules via drag-and-drop.",
+      isEnabled: true,
+      source: "manual",
+      ruleIds: reorderableRules.map((rule) => rule.id), 
+    };
+
+    const existingPrecedenceIndexInFullRules = rulesCopy.findIndex( 
+      (rule) => rule.type === "precedenceOverride"
+    );
+
+    if (existingPrecedenceIndexInFullRules !== -1) {
+      updatedRules.push(newPrecedenceRule);
+    } else {
+      updatedRules.push(newPrecedenceRule);
+    }
+
+
+    const finalRulesOrder: Rule[] = [];
+    const reorderedRuleIds = new Set(reorderableRules.map(r => r.id));
+
+    reorderableRules.forEach(rule => finalRulesOrder.push(rule));
+
+    const otherRules = rulesCopy.filter(rule => !reorderedRuleIds.has(rule.id));
+    otherRules.forEach(rule => {
+      if (rule.type === "precedenceOverride") {
+        finalRulesOrder.push(newPrecedenceRule); 
+      } else {
+        finalRulesOrder.push(rule); 
       }
+    });
 
-      const reorderedVisibleRules = Array.from(visibleRules); // Make a mutable copy
-      const [movedRule] = reorderedVisibleRules.splice(result.source.index, 1);
-      reorderedVisibleRules.splice(result.destination.index, 0, movedRule);
+    setRules(finalRulesOrder);
 
-      const newPrecedenceRule: PrecedenceOverrideRule = {
-        id: currentPrecedenceRule?.id || generateUniqueId(),
-        type: "precedenceOverride",
-        description:
-          "Defines the custom execution order of rules via drag-and-drop.",
-        isEnabled: true,
-        source: "manual",
-        ruleIds: reorderedVisibleRules.map((rule) => rule.id),
-      };
-
-      setRules([...reorderedVisibleRules, newPrecedenceRule]);
-
-      toast.success("Rule order updated successfully!");
-    },
-    [visibleRules, currentPrecedenceRule]
-  );
+    toast.success("Rule order updated successfully!");
+  },
+  [rules, currentPrecedenceRule] 
+);
 
   const exportRulesToJson = useCallback(() => {
     if (rules.length === 0) {
@@ -601,7 +672,6 @@ const RuleConfigurator: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-8">
-        {/* Natural Language Rule Input Section */}
         <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
           <h3 className="text-xl font-semibold text-foreground flex items-center">
             <FiZap className="mr-2 text-primary" /> AI Rule Converter
@@ -617,7 +687,9 @@ const RuleConfigurator: React.FC = () => {
             className="min-h-[80px]"
             disabled={isLoading}
           />
-          <Button onClick={handleConvertNlToRule} disabled={isLoading}>
+          <Button
+          className="cursor-pointer"
+          onClick={handleConvertNlToRule} disabled={isLoading}>
             {isLoading ? (
               <FiLoader className="mr-2 h-4 w-4 animate-spin" />
             ) : (
@@ -631,11 +703,12 @@ const RuleConfigurator: React.FC = () => {
           <DialogTrigger asChild>
             <div className="text-center">
               <Button
+                
                 onClick={() => {
                   setEditingRule(null);
                   setIsDialogOpen(true);
                 }}
-                className="mx-auto"
+                className="mx-auto cursor-pointer"
               >
                 <FiPlusCircle className="mr-2 h-4 w-4" /> Create New Rule
                 Manually
@@ -709,10 +782,10 @@ const RuleConfigurator: React.FC = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button className="cursor-pointer" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSaveRule}>
+              <Button className="cursor-pointer" onClick={handleSaveRule}>
                 {editingRule ? "Save Changes" : "Create Rule"}
               </Button>
             </DialogFooter>
@@ -752,7 +825,7 @@ const RuleConfigurator: React.FC = () => {
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
-                            {...provided.dragHandleProps} // Important for drag handle
+                            {...provided.dragHandleProps} 
                             className={`p-3 bg-secondary rounded-md border border-border flex items-center justify-between text-foreground
                                         ${
                                           snapshot.isDragging
@@ -781,7 +854,7 @@ const RuleConfigurator: React.FC = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 ml-1"
+                                className="h-6 w-6 ml-1 cursor-pointer"
                                 onClick={() =>
                                   copyToClipboard(rule.id, "Rule ID copied!")
                                 }
@@ -816,7 +889,7 @@ const RuleConfigurator: React.FC = () => {
         </div>
 
         <div className="text-center">
-          <Button onClick={exportRulesToJson}>
+          <Button className="cursor-pointer" onClick={exportRulesToJson}>
             <FiDownload className="mr-2 h-4 w-4" /> Export All Rules (.json)
           </Button>
         </div>
@@ -856,7 +929,7 @@ const RuleConfigurator: React.FC = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 ml-1"
+                          className="h-6 w-6 ml-1 cursor-pointer"
                           onClick={() =>
                             copyToClipboard(rule.id, "Rule ID copied!")
                           }
@@ -885,7 +958,7 @@ const RuleConfigurator: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-8 w-8 cursor-pointer"
                         onClick={() =>
                           handleToggleEnable(rule.id, !rule.isEnabled)
                         }
@@ -905,7 +978,7 @@ const RuleConfigurator: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-8 w-8 cursor-pointer"
                         onClick={() => {
                           setEditingRule(rule);
                           setIsDialogOpen(true);
@@ -918,7 +991,7 @@ const RuleConfigurator: React.FC = () => {
                       <Button
                         variant="destructive"
                         size="icon"
-                        className="h-8 w-8"
+                        className="h-8 w-8 cursor-pointer"
                         onClick={() => handleRemoveRule(rule.id)}
                         title="Remove Rule"
                       >
@@ -935,7 +1008,7 @@ const RuleConfigurator: React.FC = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => toggleRuleExpansion(rule.id)}
-                      className="text-primary flex items-center"
+                      className="text-primary flex items-center cursor-pointer"
                     >
                       {expandedRules.has(rule.id) ? (
                         <>

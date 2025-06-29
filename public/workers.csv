@@ -1,0 +1,11 @@
+﻿workerId,workerName,skills,availableSlots,maxLoadPerPhase,workerGroup,qualificationLevel,hourlyRate
+W001,Alice Smith,"React, Python, Node.js","[{""""phase"""":1,""""slots"""":20},{""""phase"""":2,""""slots"""":15}]",60,DevTeam,9,55
+W002,,"Figma,UI/UX","[{""""phase"""":1,""""slots"""":10}]",40,Designers,8,48.5
+WXYZ,Charlie Brown,"SQL, Java","[{""""phase"""":1,""""slots"""":5},{""""phase"""":2,""""slots"""":20}]",70,DevTeam,7,60
+W004,David Lee,Manual Testing,null,-10,QATeam,6,35
+W005,Eve Davis,"Node.js, Express, MongoDB","[{""""phase"""":1,""""slots"""":20},{""""phase"""":2,""""slots"""":20}]",65,DevTeam,12,58
+W006,Frank White,"Python, ML, Data Science","{""""phase"""":1,""""slots"""":10}",45,Research,10,7500
+W007,Grace Kim,Project Management,"[{""""phase"""":1,""""slots"""":25}]",30,Management,9,-70
+W008,Henry Green,"Vue.js, JavaScript","[{""""phase"""":1,""""slots"""":15}]",55,DevTeam,7,InvalidRate
+W009,Ivy Chen,,"[{""""phase"""":1,""""slots"""":5}]",30,Infrastructure,10,80
+W010,Jack Taylor,"Copywriting, SEO","[{""""phase"""":1,""""slots"""":40},{""""phase"""":2,""""slots"""":40}]",2000,Marketing,7,42

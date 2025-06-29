@@ -3,13 +3,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import FileUpload from '@/components/FileUpload';
 import DataTable from '@/components/DataTable';
-// RuleConfigurator is intentionally not imported as per the request
 import DataModifier from '@/components/DataModifier';
 import {
   ParsedData, FileCategory, DataRow, ValidationError, AIInsightResponse, AIValidationIssue,
-  AllocationAnalysisResponse, // Import the new type
-  AllocationBottleneck, // Import the new type
-  AllocationRecommendation // Import the new type
+  AllocationAnalysisResponse,
+  Rule
 } from '@/types';
 import { FiSun, FiMoon, FiZap, FiLoader } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
@@ -18,7 +16,7 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator'; // Add separator for better UI
+import { Separator } from '@/components/ui/separator'; 
 import RuleConfigurator from '@/components/RuleConfigurator';
 
 const HomePage: React.FC = () => {
@@ -29,14 +27,20 @@ const HomePage: React.FC = () => {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  const [globalRules, setGlobalRules] = useState<Rule[]>([]);
+
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [aiInsightsSummary, setAiInsightsSummary] = useState<string[]>([]);
   const [overallAiMessage, setOverallAiMessage] = useState('');
 
-  // State for X-Factor 3 Allocation Analysis
   const [allocationAnalysisLoading, setAllocationAnalysisLoading] = useState(false);
   const [allocationAnalysisResult, setAllocationAnalysisResult] = useState<AllocationAnalysisResponse | null>(null);
-  // No 'rules' state here as RuleConfigurator is not being used
+
+  const handleRulesChange = useCallback((updatedRules: Rule[]) => {
+    setGlobalRules(updatedRules);
+    console.log("Rules updated from RuleConfigurator:", updatedRules);
+  }, []); 
+
 
   useEffect(() => {
     setMounted(true);
@@ -52,7 +56,7 @@ const HomePage: React.FC = () => {
     toast.success(`${category.charAt(0).toUpperCase() + category.slice(1)} data loaded and validated successfully!`);
     setAiInsightsSummary([]);
     setOverallAiMessage('');
-    setAllocationAnalysisResult(null); // Clear allocation results on new data load
+    setAllocationAnalysisResult(null); 
   }, []);
 
   const handleFileTypeError = useCallback((errorMessage: string) => {
@@ -68,7 +72,7 @@ const HomePage: React.FC = () => {
     }
     setAiInsightsSummary([]);
     setOverallAiMessage('Data has been updated. Run AI Insights again for fresh analysis.');
-    setAllocationAnalysisResult(null); // Clear allocation results on data update
+    setAllocationAnalysisResult(null); 
   }, []);
 
   const combineErrors = useCallback((staticErrors: ValidationError[], aiIssues: AIValidationIssue[]): ValidationError[] => {
@@ -100,7 +104,7 @@ const HomePage: React.FC = () => {
     setAiInsightsLoading(true);
     setAiInsightsSummary([]);
     setOverallAiMessage('Analyzing data...');
-    setAllocationAnalysisResult(null); // Clear allocation results on new smart insights run
+    setAllocationAnalysisResult(null); 
 
     try {
       const categoriesToAnalyze = [];
@@ -163,7 +167,6 @@ const HomePage: React.FC = () => {
     }
   }, [clientsData, workersData, tasksData, combineErrors, handleDataUpdate]);
 
-  // handleAnalyzeAllocation function (with `rules: []` and dependency array update)
   const handleAnalyzeAllocation = useCallback(async () => {
     if (!clientsData || !workersData || !tasksData) {
       toast.warning("Please upload Client, Worker, and Task data before running allocation analysis.");
@@ -171,7 +174,7 @@ const HomePage: React.FC = () => {
     }
 
     setAllocationAnalysisLoading(true);
-    setAllocationAnalysisResult(null); // Clear previous results
+    setAllocationAnalysisResult(null); 
     toast.info("Running AI-powered allocation feasibility analysis...");
 
     try {
@@ -182,7 +185,7 @@ const HomePage: React.FC = () => {
           clientsData: clientsData.data,
           workersData: workersData.data,
           tasksData: tasksData.data,
-          rules: [], // Send an empty array for rules since RuleConfigurator is not used
+          rules: [], 
         }),
       });
 
@@ -219,7 +222,7 @@ const HomePage: React.FC = () => {
     } finally {
       setAllocationAnalysisLoading(false);
     }
-  }, [clientsData, workersData, tasksData]); // Removed rules from dependency array
+  }, [clientsData, workersData, tasksData]); 
 
 
   const exportToCsv = (data: DataRow[], filename: string) => {
@@ -254,10 +257,10 @@ const HomePage: React.FC = () => {
     <div className="container mx-auto max-w-7xl px-4 py-10">
       <header className="text-center mb-14 relative">
         <h1 className="text-5xl font-extrabold tracking-tight text-foreground">Data Alchemist</h1>
-        <p className="mt-3 text-xl text-muted-foreground max-w-xl mx-auto">Forge Your Own AI Resource-Allocation Configurator</p>
+        <p className="mt-3 text-xl text-muted-foreground max-w-xl mx-auto">Transform Data into Optimized Resources</p>
         <div className="absolute top-0 right-0 mt-4 mr-4">
           {mounted && (
-            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+            <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className='cursor-pointer'>
               {resolvedTheme === 'dark' ? <FiSun className="h-6 w-6" /> : <FiMoon className="h-6 w-6" />}
               <span className="sr-only">Toggle theme</span>
             </Button>
@@ -267,15 +270,15 @@ const HomePage: React.FC = () => {
 
       <Tabs defaultValue="validation" onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 rounded-2xl overflow-hidden border border-border mb-8 shadow-md h-[50px] transition-all">
-          <TabsTrigger value="validation" className="text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
+          <TabsTrigger value="validation" className=" cursor-pointer text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
             Data Validation
           </TabsTrigger>
           
-          <TabsTrigger value="allocation" className="text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
+          <TabsTrigger value="allocation" className=" cursor-pointer text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
             Allocation Analysis
           </TabsTrigger>
 
-          <TabsTrigger value="rules" className="text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
+          <TabsTrigger value="rules" className="cursor-pointer text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
             Rule UI (Beta)
           </TabsTrigger>
         </TabsList>
@@ -296,7 +299,7 @@ const HomePage: React.FC = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-center">
-                    <Button onClick={handleRunSmartInsights} disabled={aiInsightsLoading || (!clientsData && !workersData && !tasksData)}>
+                    <Button className='cursor-pointer' onClick={handleRunSmartInsights} disabled={aiInsightsLoading || (!clientsData && !workersData && !tasksData)}>
                       {aiInsightsLoading ? (
                         <FiLoader className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
@@ -332,7 +335,7 @@ const HomePage: React.FC = () => {
 
             {(clientsData || workersData || tasksData) && (
               <div className="mt-10 text-center">
-                <Button onClick={handleExportAllData} size="lg" className="px-8 py-4 text-base font-semibold shadow-sm">
+                <Button onClick={handleExportAllData} size="lg" className="px-8 py-4 text-base font-semibold shadow-sm cursor-pointer">
                   Export All Cleaned Data
                 </Button>
               </div>
@@ -340,7 +343,6 @@ const HomePage: React.FC = () => {
           </div>
         </TabsContent>
 
-        {/* NEW: Allocation Analysis Tab Content */}
         <TabsContent value="allocation">
           <Card className="p-6 md:p-8">
             <CardHeader className="text-center">
@@ -353,6 +355,7 @@ const HomePage: React.FC = () => {
             <CardContent className="space-y-6">
               <div className="flex justify-center">
                 <Button
+                  className='cursor-pointer'
                   onClick={handleAnalyzeAllocation}
                   disabled={allocationAnalysisLoading || (!clientsData || !workersData || !tasksData)}
                 >
@@ -375,7 +378,6 @@ const HomePage: React.FC = () => {
                       allocationAnalysisResult.overallStatus === 'highly_challenged' ? 'bg-red-500' :
                       'bg-gray-500'
                     }`}>
-                      {/* Added optional chaining and nullish coalescing for robustness */}
                       {allocationAnalysisResult.overallStatus?.replace(/_/g, ' ').toUpperCase() ?? 'UNKNOWN'}
                     </span>
                   </p>
@@ -391,7 +393,6 @@ const HomePage: React.FC = () => {
                       <ul className="list-disc list-inside space-y-1 text-sm text-red-800 dark:text-red-200">
                         {allocationAnalysisResult.bottlenecks.map((b, index) => (
                           <li key={index}>
-                            {/* Added optional chaining and nullish coalescing for robustness */}
                             <strong>{b.type?.replace(/_/g, ' ') ?? 'N/A'}:</strong> {b.message || 'No specific message provided.'}
                             {b.details && <span className="ml-1 text-xs italic">({b.details})</span>}
                             {b.relatedIds && b.relatedIds.length > 0 && <span className="ml-1 text-xs text-muted-foreground">(Related IDs: {b.relatedIds.join(', ')})</span>}
@@ -428,7 +429,6 @@ const HomePage: React.FC = () => {
                       <ul className="list-disc list-inside space-y-1 text-sm text-green-800 dark:text-green-200">
                         {allocationAnalysisResult.recommendations.map((r, index) => (
                           <li key={index}>
-                            {/* Added optional chaining and nullish coalescing for robustness */}
                             <strong>{r.type?.replace(/_/g, ' ') ?? 'N/A'}:</strong> {r.message || 'No specific message provided.'}
                           </li>
                         ))}
@@ -442,7 +442,7 @@ const HomePage: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="rules">
-          <RuleConfigurator />
+          <RuleConfigurator onRulesUpdate={handleRulesChange}/>
         </TabsContent>
       </Tabs>
     </div>

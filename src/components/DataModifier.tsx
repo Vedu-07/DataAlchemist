@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { DataRow, ParsedData, FileCategory, GeminiDataModificationResponse, DataFilter, DataModificationAction } from '@/types';
+import {  ParsedData, FileCategory, GeminiDataModificationResponse, DataFilter, DataModificationAction } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FiCpu, FiLoader, FiCheckCircle, FiAlertTriangle, FiInfo } from 'react-icons/fi';
-import { toast } from 'sonner'; // Sonner toast
+import { toast } from 'sonner';
 
 interface DataModifierProps {
   clientsData: ParsedData | null;
@@ -22,7 +22,7 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
   const [selectedCategory, setSelectedCategory] = useState<FileCategory | ''>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [confirmationNeeded, setConfirmationNeeded] = useState<boolean>(false);
-  const [proposedInstructions, setProposedInstructions] = useState<any>(null); // Store AI's proposed instructions
+  const [proposedInstructions, setProposedInstructions] = useState<any>(null); 
 
 
   const handleModifyData = useCallback(async (confirm: boolean = false) => {
@@ -142,7 +142,7 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
           />
         </div>
 
-        <Button onClick={() => handleModifyData(false)} disabled={isLoading || !selectedCategory || !prompt.trim()} className="w-full">
+        <Button onClick={() => handleModifyData(false)} disabled={isLoading || !selectedCategory || !prompt.trim()} className="w-full cursor-pointer">
           {isLoading && !confirmationNeeded ? (
             <FiLoader className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -173,10 +173,10 @@ const DataModifier: React.FC<DataModifierProps> = ({ clientsData, workersData, t
               ))}
             </ul>
             <div className="flex justify-end space-x-4 mt-4">
-              <Button variant="outline" onClick={handleCancelConfirmation} disabled={isLoading}>
+              <Button className='cursor-pointer' variant="outline" onClick={handleCancelConfirmation} disabled={isLoading}>
                 Cancel
               </Button>
-              <Button onClick={handleConfirmModification} disabled={isLoading}>
+              <Button className='cursor-pointer' onClick={handleConfirmModification} disabled={isLoading}>
                 <FiCheckCircle className="mr-2 h-4 w-4" /> Confirm & Apply Changes
               </Button>
             </div>

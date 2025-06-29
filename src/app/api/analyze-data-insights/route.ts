@@ -1,11 +1,6 @@
-// src/app/api/analyze-data-insights/route.ts
-
-// This API route takes current data for a category and sends it to Gemini
-// to get AI-powered insights, anomaly detection, and suggested corrections.
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { DataRow, FileCategory, ValidationError, AIInsightResponse, AIValidationIssue, SuggestedCorrection } from '@/types';
-import { validateData } from '@/lib/dataProcessor'; // To get static errors for AI context
 
 export async function POST(request: Request) {
   try {
@@ -25,18 +20,15 @@ export async function POST(request: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); // Using gemini-2.0-flash
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" }); 
 
-    // Prepare data sample for Gemini prompt (keep it small for performance/token limits)
-    const sampleData = data.slice(0, Math.min(data.length, 20)); // Sample up to 20 rows
+    const sampleData = data.slice(0, Math.min(data.length, 20)); 
     const dataSampleForPrompt = JSON.stringify(sampleData, null, 2);
 
-    // Prepare existing errors for Gemini context
     const existingErrorsForPrompt = existingErrors.length > 0
       ? `\n\nExisting validation errors already identified by static rules (consider these, and suggest corrections where possible):\n${JSON.stringify(existingErrors, null, 2)}`
       : '\n\nThere are no existing static validation errors for the AI to directly address, but still look for anomalies.';
 
-    // Define the structured JSON schema for AI's response
     const responseSchema = {
       type: "object",
       properties: {
@@ -121,7 +113,6 @@ export async function POST(request: Request) {
     let aiResponse: AIInsightResponse;
     try {
       aiResponse = JSON.parse(responseText);
-      // Ensure arrays are arrays even if Gemini sends null/undefined/empty object
       aiResponse.aiIdentifiedIssues = Array.isArray(aiResponse.aiIdentifiedIssues) ? aiResponse.aiIdentifiedIssues : [];
       aiResponse.summaryInsights = Array.isArray(aiResponse.summaryInsights) ? aiResponse.summaryInsights : [];
 

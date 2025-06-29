@@ -176,13 +176,11 @@ export async function POST(request: Request) {
 
     try {
       instructions = JSON.parse(responseText);
-      // --- Debugging: Log Gemini's output ---
       console.log('Gemini Generated Instructions:', JSON.stringify(instructions, null, 2));
     } catch (err) {
-      throw new Error('Failed to parse JSON from AI response: ' + responseText); // Include responseText for better debugging
+      throw new Error('Failed to parse JSON from AI response: ' + responseText); 
     }
 
-    // --- Validate structure before processing ---
     if (!Array.isArray(instructions.filters)) {
       throw new Error("Invalid or missing 'filters' in AI-generated instructions. Expected an array.");
     }
@@ -276,7 +274,7 @@ export async function POST(request: Request) {
             break;
           default:
             console.warn(`Unknown filter operator: ${filter.operator}. Skipping this filter.`);
-            matchesFilters = false; // If an unknown operator is encountered, the filter should not match
+            matchesFilters = false; 
             break;
         }
 

@@ -1,0 +1,6 @@
+ClientID,ClientName,PriorityLevel,RequestedTaskIDs,GroupTag,AttributesJSON,Email
+C1,Acme Corp,3,"T17,T27,T33,T31,T20,T3,T32,T26",GroupA,"{""location"":""New York"",""budget"":100000}",john.doe@example.com
+C2,Globex Inc.,,T40,GroupB,on-json-text,invalid-email-format
+C4,Wayne Enterprises,5,T5,,"{""status"":""active""}",bruce@wayne.com
+C5,LexCorp,2,"T1,TX,T3",GroupD,"{""contact"":""Clark""}",lex.luthor@corp.net
+C6,Initech,4,"T18,T25",GroupA,,peter@initech

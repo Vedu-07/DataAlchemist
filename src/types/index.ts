@@ -1,4 +1,3 @@
-// src/types/index.ts
 
 // Define a generic type for a row of data, where keys are string and values are any
 export type DataRow = { [key: string]: any };

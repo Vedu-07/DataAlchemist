@@ -1,0 +1,8 @@
+﻿taskId,taskName,category,duration,requiredSkills
+T001,Build,"Frontend,Development",80,"React,JavaScript"
+T002,SEO Audit,Marketing,120,SEO
+T003,Bug Fix,Development,5,Debugging
+T004,Urgent Meeting,Admin,1,Communication
+T005,Long Term Project,Development,5000,Architecture
+T006,Typo Task,Development,-10,Typing
+T007,Invalid Category,InvalidCat,20,None
