@@ -3,20 +3,23 @@
 // Define a generic type for a row of data, where keys are string and values are any
 export type DataRow = { [key: string]: any };
 
-// Defines a suggested correction for an error
+// NEW: Defines a suggested correction for an error/anomaly
 export interface SuggestedCorrection {
   column: string; // The column where the correction should apply
   newValue: any;  // The suggested new value
   reason?: string; // Optional: AI's reason for the suggestion
 }
 
-// Define the structure for an error flagged during validation
+// Modified: Define the structure for an error flagged during validation
 export interface ValidationError {
   row: number;         // The row index where the error occurred (0-indexed)
   column: string;      // The column name where the error occurred
   message: string;     // A descriptive message about the error
-  severity?: 'warning' | 'error'; // Optional: severity level
-  suggestedCorrection?: SuggestedCorrection; // NEW: Optional AI-suggested correction
+  severity?: 'warning' | 'error'; // Severity level (e.g., 'error' for static rules, 'warning' for anomalies)
+  suggestedCorrection?: SuggestedCorrection; // Optional AI-suggested correction
+  isAIIdentified?: boolean; // NEW: True if this error/anomaly was identified by AI
+  isAnomaly?: boolean; // NEW: True if this is an anomaly (outlier, unusual pattern) rather than a strict error
+  aiConfidence?: number; // NEW: AI's confidence score (0-1) for this finding/suggestion
 }
 
 // Define the overall structure of parsed data, including errors
@@ -151,7 +154,7 @@ export interface GeminiRuleConversionResponse {
 }
 
 
-// --- New Types for Natural Language Data Modification (Milestone 3 - Part 1) ---
+// --- Types for Natural Language Data Modification (Milestone 3 - Part 1) ---
 
 // Defines a single filter condition (e.g., "column 'status' equals 'active'")
 export interface DataFilter {
@@ -185,4 +188,28 @@ export interface GeminiDataModificationResponse {
   instructions?: DataModificationInstructions; // The structured instructions from Gemini
   error?: string;
   rowCountAffected?: number;
+}
+
+
+// NEW: AI Insight Analysis Types (X-Factor 1)
+
+// Represents an issue (error or anomaly) identified by AI
+export interface AIValidationIssue {
+  row: number; // The 0-indexed row number where the issue occurred
+  column: string; // The column name where the issue occurred
+  message: string; // Descriptive message about the issue (e.g., "This duration is an outlier.")
+  severity: 'warning' | 'error'; // 'error' for strict violations, 'warning' for anomalies/outliers
+  isAIIdentified: boolean; // Always true for issues from AI
+  isAnomaly?: boolean; // True if this is an anomaly/outlier
+  aiConfidence?: number; // AI's confidence in this finding (0-1)
+  suggestedCorrection?: SuggestedCorrection; // Optional AI-suggested fix
+}
+
+// Response structure from the new /api/analyze-data-insights endpoint
+export interface AIInsightResponse {
+  success: boolean;
+  aiMessage: string; // Overall summary message from AI
+  aiIdentifiedIssues: AIValidationIssue[]; // Array of errors/anomalies found by AI
+  summaryInsights: string[]; // High-level textual insights (e.g., ["Top 5 longest tasks:", "Clients with missing emails:"])
+  error?: string;
 }
