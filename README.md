@@ -39,7 +39,7 @@ Follow these simple steps to get the Data Alchemist up and running on your local
 
 Clone the Repository:
 
-git clone <your-repository-url>
+git clone <https://github.com/Vedu-07/DataAlchemist>
 cd data-alchemist
 
 Install Dependencies:
