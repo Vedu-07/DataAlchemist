@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, SetStateAction, Dispatch } from "react";
 import {
   Rule,
   NaturalLanguageRule,

@@ -3,10 +3,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import FileUpload from '@/components/FileUpload';
 import DataTable from '@/components/DataTable';
-import RuleConfigurator from '@/components/RuleConfigurator';
+// RuleConfigurator is intentionally not imported as per the request
 import DataModifier from '@/components/DataModifier';
 import {
-  ParsedData, FileCategory, DataRow, ValidationError, AIInsightResponse, AIValidationIssue
+  ParsedData, FileCategory, DataRow, ValidationError, AIInsightResponse, AIValidationIssue,
+  AllocationAnalysisResponse, // Import the new type
+  AllocationBottleneck, // Import the new type
+  AllocationRecommendation // Import the new type
 } from '@/types';
 import { FiSun, FiMoon, FiZap, FiLoader } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
@@ -15,6 +18,8 @@ import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator'; // Add separator for better UI
+import RuleConfigurator from '@/components/RuleConfigurator';
 
 const HomePage: React.FC = () => {
   const [clientsData, setClientsData] = useState<ParsedData | null>(null);
@@ -27,6 +32,11 @@ const HomePage: React.FC = () => {
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
   const [aiInsightsSummary, setAiInsightsSummary] = useState<string[]>([]);
   const [overallAiMessage, setOverallAiMessage] = useState('');
+
+  // State for X-Factor 3 Allocation Analysis
+  const [allocationAnalysisLoading, setAllocationAnalysisLoading] = useState(false);
+  const [allocationAnalysisResult, setAllocationAnalysisResult] = useState<AllocationAnalysisResponse | null>(null);
+  // No 'rules' state here as RuleConfigurator is not being used
 
   useEffect(() => {
     setMounted(true);
@@ -42,6 +52,7 @@ const HomePage: React.FC = () => {
     toast.success(`${category.charAt(0).toUpperCase() + category.slice(1)} data loaded and validated successfully!`);
     setAiInsightsSummary([]);
     setOverallAiMessage('');
+    setAllocationAnalysisResult(null); // Clear allocation results on new data load
   }, []);
 
   const handleFileTypeError = useCallback((errorMessage: string) => {
@@ -57,6 +68,7 @@ const HomePage: React.FC = () => {
     }
     setAiInsightsSummary([]);
     setOverallAiMessage('Data has been updated. Run AI Insights again for fresh analysis.');
+    setAllocationAnalysisResult(null); // Clear allocation results on data update
   }, []);
 
   const combineErrors = useCallback((staticErrors: ValidationError[], aiIssues: AIValidationIssue[]): ValidationError[] => {
@@ -88,6 +100,7 @@ const HomePage: React.FC = () => {
     setAiInsightsLoading(true);
     setAiInsightsSummary([]);
     setOverallAiMessage('Analyzing data...');
+    setAllocationAnalysisResult(null); // Clear allocation results on new smart insights run
 
     try {
       const categoriesToAnalyze = [];
@@ -150,6 +163,65 @@ const HomePage: React.FC = () => {
     }
   }, [clientsData, workersData, tasksData, combineErrors, handleDataUpdate]);
 
+  // handleAnalyzeAllocation function (with `rules: []` and dependency array update)
+  const handleAnalyzeAllocation = useCallback(async () => {
+    if (!clientsData || !workersData || !tasksData) {
+      toast.warning("Please upload Client, Worker, and Task data before running allocation analysis.");
+      return;
+    }
+
+    setAllocationAnalysisLoading(true);
+    setAllocationAnalysisResult(null); // Clear previous results
+    toast.info("Running AI-powered allocation feasibility analysis...");
+
+    try {
+      const response = await fetch('/api/analyze-allocation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientsData: clientsData.data,
+          workersData: workersData.data,
+          tasksData: tasksData.data,
+          rules: [], // Send an empty array for rules since RuleConfigurator is not used
+        }),
+      });
+
+      const result: AllocationAnalysisResponse = await response.json();
+
+      if (response.ok && result.success) {
+        setAllocationAnalysisResult(result);
+        toast.success("AI Allocation Analysis complete!");
+      } else {
+        toast.error(`Allocation analysis failed: ${result.message || 'Unknown error.'}`);
+        setAllocationAnalysisResult({
+          success: false,
+          message: result.message || 'Failed to analyze allocation.',
+          overallStatus: 'unknown',
+          bottlenecks: [],
+          predictedRuleViolations: [],
+          predictedUnassignedTasksCount: 0,
+          recommendations: [],
+          error: result.error || 'API error',
+        });
+      }
+    } catch (error: any) {
+      console.error('API Error during allocation analysis:', error);
+      toast.error(`An unexpected error occurred during analysis: ${error.message || 'Please try again.'}`);
+      setAllocationAnalysisResult({
+        success: false,
+        message: `An unexpected error occurred: ${error.message || 'Please try again.'}`,
+        overallStatus: 'unknown',
+        bottlenecks: [],
+        predictedRuleViolations: [],
+        predictedUnassignedTasksCount: 0,
+        recommendations: [],
+      });
+    } finally {
+      setAllocationAnalysisLoading(false);
+    }
+  }, [clientsData, workersData, tasksData]); // Removed rules from dependency array
+
+
   const exportToCsv = (data: DataRow[], filename: string) => {
     if (!data || data.length === 0) {
       toast.error(`No data to export for ${filename}.`);
@@ -194,12 +266,17 @@ const HomePage: React.FC = () => {
       </header>
 
       <Tabs defaultValue="validation" onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 rounded-2xl overflow-hidden border border-border mb-8 shadow-md h-[50px] transition-all">
+        <TabsList className="grid w-full grid-cols-3 rounded-2xl overflow-hidden border border-border mb-8 shadow-md h-[50px] transition-all">
           <TabsTrigger value="validation" className="text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
             Data Validation
           </TabsTrigger>
+          
+          <TabsTrigger value="allocation" className="text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
+            Allocation Analysis
+          </TabsTrigger>
+
           <TabsTrigger value="rules" className="text-base sm:text-lg font-semibold px-6 py-3 h-[40px] flex items-center justify-center data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-inner transition-all duration-300 ease-in-out">
-            Rule UI
+            Rule UI (Beta)
           </TabsTrigger>
         </TabsList>
 
@@ -261,6 +338,107 @@ const HomePage: React.FC = () => {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* NEW: Allocation Analysis Tab Content */}
+        <TabsContent value="allocation">
+          <Card className="p-6 md:p-8">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold text-foreground">AI-Powered Allocation Feasibility & Bottleneck Analysis</CardTitle>
+              <CardDescription className="text-muted-foreground mt-1">
+                Let the AI analyze your loaded data to determine allocation feasibility and identify roadblocks. No explicit rules are currently being considered for this analysis.
+                Upload all the 3 files for allocation feasibility.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleAnalyzeAllocation}
+                  disabled={allocationAnalysisLoading || (!clientsData || !workersData || !tasksData)}
+                >
+                  {allocationAnalysisLoading ? (
+                    <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FiZap className="mr-2 h-4 w-4" />
+                  )}
+                  Analyze Allocation Feasibility
+                </Button>
+              </div>
+
+              {allocationAnalysisResult && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold text-center mt-4">Analysis Results:</h3>
+                  <p className="text-center text-lg font-medium">Overall Status:
+                    <span className={`ml-2 px-3 py-1 rounded-full text-white ${
+                      allocationAnalysisResult.overallStatus === 'feasible' ? 'bg-green-500' :
+                      allocationAnalysisResult.overallStatus === 'challenged' ? 'bg-yellow-500' :
+                      allocationAnalysisResult.overallStatus === 'highly_challenged' ? 'bg-red-500' :
+                      'bg-gray-500'
+                    }`}>
+                      {/* Added optional chaining and nullish coalescing for robustness */}
+                      {allocationAnalysisResult.overallStatus?.replace(/_/g, ' ').toUpperCase() ?? 'UNKNOWN'}
+                    </span>
+                  </p>
+                  {allocationAnalysisResult.message && (
+                    <p className="text-center text-muted-foreground italic text-sm">{allocationAnalysisResult.message}</p>
+                  )}
+
+                  <Separator className="my-4" />
+
+                  {allocationAnalysisResult.bottlenecks.length > 0 && (
+                    <div className="border rounded-lg p-4 bg-red-100 dark:bg-red-900/20">
+                      <h4 className="font-semibold text-lg mb-2 text-red-700 dark:text-red-300">Identified Bottlenecks ({allocationAnalysisResult.bottlenecks.length}):</h4>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-red-800 dark:text-red-200">
+                        {allocationAnalysisResult.bottlenecks.map((b, index) => (
+                          <li key={index}>
+                            {/* Added optional chaining and nullish coalescing for robustness */}
+                            <strong>{b.type?.replace(/_/g, ' ') ?? 'N/A'}:</strong> {b.message || 'No specific message provided.'}
+                            {b.details && <span className="ml-1 text-xs italic">({b.details})</span>}
+                            {b.relatedIds && b.relatedIds.length > 0 && <span className="ml-1 text-xs text-muted-foreground">(Related IDs: {b.relatedIds.join(', ')})</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {allocationAnalysisResult.predictedRuleViolations.length > 0 && (
+                    <div className="border rounded-lg p-4 bg-orange-100 dark:bg-orange-900/20">
+                      <h4 className="font-semibold text-lg mb-2 text-orange-700 dark:text-orange-300">Predicted Rule Violations ({allocationAnalysisResult.predictedRuleViolations.length}):</h4>
+                      <p className="text-muted-foreground text-xs mb-2">These are potential implicit violations identified from data patterns, as no explicit rules are configured.</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-orange-800 dark:text-orange-200">
+                        {allocationAnalysisResult.predictedRuleViolations.map((rv, index) => (
+                          <li key={index}>{rv}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {allocationAnalysisResult.predictedUnassignedTasksCount > 0 && (
+                    <div className="border rounded-lg p-4 bg-blue-100 dark:bg-blue-900/20">
+                      <h4 className="font-semibold text-lg mb-2 text-blue-700 dark:text-blue-300">Estimated Unassigned Tasks:</h4>
+                      <p className="text-blue-800 dark:text-blue-200 text-sm">
+                        Approximately <strong>{allocationAnalysisResult.predictedUnassignedTasksCount}</strong> tasks might remain unassigned given current constraints.
+                      </p>
+                    </div>
+                  )}
+
+                  {allocationAnalysisResult.recommendations.length > 0 && (
+                    <div className="border rounded-lg p-4 bg-green-100 dark:bg-green-900/20">
+                      <h4 className="font-semibold text-lg mb-2 text-green-700 dark:text-green-300">Recommendations ({allocationAnalysisResult.recommendations.length}):</h4>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-green-800 dark:text-green-200">
+                        {allocationAnalysisResult.recommendations.map((r, index) => (
+                          <li key={index}>
+                            {/* Added optional chaining and nullish coalescing for robustness */}
+                            <strong>{r.type?.replace(/_/g, ' ') ?? 'N/A'}:</strong> {r.message || 'No specific message provided.'}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="rules">

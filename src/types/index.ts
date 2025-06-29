@@ -3,23 +3,23 @@
 // Define a generic type for a row of data, where keys are string and values are any
 export type DataRow = { [key: string]: any };
 
-// NEW: Defines a suggested correction for an error/anomaly
+// Defines a suggested correction for an error/anomaly
 export interface SuggestedCorrection {
   column: string; // The column where the correction should apply
   newValue: any;  // The suggested new value
   reason?: string; // Optional: AI's reason for the suggestion
 }
 
-// Modified: Define the structure for an error flagged during validation
+// Define the structure for an error flagged during validation (now includes AI flags)
 export interface ValidationError {
   row: number;         // The row index where the error occurred (0-indexed)
   column: string;      // The column name where the error occurred
   message: string;     // A descriptive message about the error
   severity?: 'warning' | 'error'; // Severity level (e.g., 'error' for static rules, 'warning' for anomalies)
   suggestedCorrection?: SuggestedCorrection; // Optional AI-suggested correction
-  isAIIdentified?: boolean; // NEW: True if this error/anomaly was identified by AI
-  isAnomaly?: boolean; // NEW: True if this is an anomaly (outlier, unusual pattern) rather than a strict error
-  aiConfidence?: number; // NEW: AI's confidence score (0-1) for this finding/suggestion
+  isAIIdentified?: boolean; // True if this error/anomaly was identified by AI
+  isAnomaly?: boolean; // True if this is an anomaly (outlier, unusual pattern) rather than a strict error
+  aiConfidence?: number; // AI's confidence score (0-1)
 }
 
 // Define the overall structure of parsed data, including errors
@@ -66,7 +66,7 @@ export interface TaskData extends DataRow {
 }
 
 
-// --- Rule Definitions for Milestone 2 ---
+// --- Rule Definitions ---
 
 // Base interface for any rule
 export interface BaseRule {
@@ -154,7 +154,7 @@ export interface GeminiRuleConversionResponse {
 }
 
 
-// --- Types for Natural Language Data Modification (Milestone 3 - Part 1) ---
+// --- Types for Natural Language Data Modification ---
 
 // Defines a single filter condition (e.g., "column 'status' equals 'active'")
 export interface DataFilter {
@@ -191,7 +191,7 @@ export interface GeminiDataModificationResponse {
 }
 
 
-// NEW: AI Insight Analysis Types (X-Factor 1)
+// AI Insight Analysis Types (X-Factor 1)
 
 // Represents an issue (error or anomaly) identified by AI
 export interface AIValidationIssue {
@@ -200,7 +200,7 @@ export interface AIValidationIssue {
   message: string; // Descriptive message about the issue (e.g., "This duration is an outlier.")
   severity: 'warning' | 'error'; // 'error' for strict violations, 'warning' for anomalies/outliers
   isAIIdentified: boolean; // Always true for issues from AI
-  isAnomaly?: boolean; // True if this is an anomaly/outlier
+  isAnomaly?: boolean; // True if this is an anomaly (e.g., an outlier) rather than a strict validation error
   aiConfidence?: number; // AI's confidence in this finding (0-1)
   suggestedCorrection?: SuggestedCorrection; // Optional AI-suggested fix
 }
@@ -211,5 +211,51 @@ export interface AIInsightResponse {
   aiMessage: string; // Overall summary message from AI
   aiIdentifiedIssues: AIValidationIssue[]; // Array of errors/anomalies found by AI
   summaryInsights: string[]; // High-level textual insights (e.g., ["Top 5 longest tasks:", "Clients with missing emails:"])
+  error?: string;
+}
+
+
+// AI Rule Suggestion Types (X-Factor 2 - REMOVED, but keeping structure for reference if ever needed)
+/*
+export interface AISuggestedRule {
+  plainLanguageDescription: string;
+  structuredRule: Exclude<Rule, NaturalLanguageRule> | null;
+  aiConfidence?: number;
+  reason?: string;
+}
+
+export interface AISuggestionResponse {
+  success: boolean;
+  message: string;
+  suggestedRules: AISuggestedRule[];
+  error?: string;
+}
+*/
+
+// NEW: AI Allocation Analysis Types (X-Factor 3)
+
+// Represents a specific bottleneck identified by the AI
+export interface AllocationBottleneck {
+  type: 'skill_shortage' | 'capacity_overload' | 'rule_conflict' | 'unassigned_tasks' | 'other';
+  message: string; // Plain-language description of the bottleneck
+  details?: string; // More specific details, e.g., "Python skill needed for 3 tasks, 0 workers available."
+  relatedIds?: string[]; // Optional: IDs of related entities (tasks, workers, clients, rules)
+}
+
+// Represents a high-level recommendation from the AI
+export interface AllocationRecommendation {
+  message: string; // Plain-language recommendation
+  type: 'adjust_data' | 'adjust_rules' | 'strategic_action' | 're_evaluate_priorities';
+}
+
+// Response structure for the /api/analyze-allocation endpoint
+export interface AllocationAnalysisResponse {
+  success: boolean;
+  message: string; // Overall AI summary message (e.g., "Allocation analysis complete.")
+  overallStatus: 'feasible' | 'challenged' | 'highly_challenged' | 'unknown'; // AI's high-level verdict
+  bottlenecks: AllocationBottleneck[]; // List of identified bottlenecks
+  predictedRuleViolations: string[]; // Plain-language descriptions of rules likely to be violated
+  predictedUnassignedTasksCount: number; // Estimated count of tasks that cannot be assigned
+  recommendations: AllocationRecommendation[]; // Actionable recommendations
   error?: string;
 }
